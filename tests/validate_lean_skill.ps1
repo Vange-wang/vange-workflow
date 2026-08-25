@@ -50,6 +50,7 @@ if ($null -ne $skillPath) {
     Require-Match $skill '(?i)NON_SERIOUS.*(Open Issue|非阻塞)|非严重.*(Open Issue|非阻塞)' 'non-serious-defer'
     Require-Match $skill '(?i)WORKFLOW_COMPLETE' 'completion-state'
     Require-Match $skill '(?i)references/.*\.md' 'conditional-reference-routing'
+    Require-Match $skill '(?i)project-repository-structure\.md' 'repository-structure-routing'
 
     Forbid-Match $skill '(?m)^## Route by Responsibility$' 'role-table'
     Forbid-Match $skill '(?m)^## Verification Ladder$' 'verification-ladder'
@@ -62,8 +63,24 @@ $sizeLimits = @{
     'references/contracts.md' = 5200
     'references/critical-document-review.md' = 6200
     'references/thread-routing.md' = 5200
+    'references/project-repository-structure.md' = 8200
     'references/user-invariants.md' = 4200
     'references/workflow-state-machine.md' = 4600
+}
+
+$structurePath = Require-File 'references/project-repository-structure.md'
+if ($null -ne $structurePath) {
+    $structure = Get-Content -LiteralPath $structurePath -Raw -Encoding utf8
+    Require-Match $structure '(?i)Codex.*(primary|优先|主模板)' 'codex-structure-precedence'
+    Require-Match $structure '(?i)WorkBuddy.*(supplement|补充)' 'workbuddy-supplement-only'
+    Require-Match $structure '(?i)UI美术文档.*(optional|conditional|按需|条件)' 'optional-ui-directory'
+    Require-Match $structure '(?i)(do not|不得|禁止).*(copy|复制).*(file|文件|content|内容)' 'no-sample-content-copy'
+    Require-Match $structure '(?i)(report|报告).*(do not|不得|禁止).*(create|move|delete|创建|移动|删除)' 'report-only-structure-scan'
+    Require-Match $structure '(?i)Hermes_handoff' 'single-hermes-handoff'
+    Require-Match $structure '(?i)do not create generic per-role handoff' 'no-generic-role-handoff-tree'
+    Require-Match $structure '(?i)Feature trigger registry' 'feature-trigger-registry'
+    Require-Match $structure '(?i)zcode_tasks.*deliberately excluded' 'exclude-workbuddy-task-folders'
+    Require-Match $structure '(?i)scanner state covers.*core-path existence' 'scanner-coverage-boundary'
 }
 
 foreach ($entry in $sizeLimits.GetEnumerator()) {
@@ -83,6 +100,15 @@ if ($null -ne $reviewScript) {
     Require-Match $scriptText 'Get-FileHash' 'review-source-hash'
     Require-Match $scriptText 'Copy-Item' 'review-copy-isolation'
     Require-Match $scriptText 'Preflight' 'review-preflight-mode'
+}
+
+$structureScript = Require-File 'scripts/initialize_project_structure.ps1'
+if ($null -ne $structureScript) {
+    $scriptText = Get-Content -LiteralPath $structureScript -Raw -Encoding utf8
+    Require-Match $scriptText "ValidateSet\('Plan', 'Apply'\)" 'structure-plan-apply-modes'
+    Require-Match $scriptText 'Hermes_handoff' 'structure-hermes-feature'
+    Require-Match $scriptText '(?i)never moves, renames, or deletes' 'structure-create-only'
+    Forbid-Match $scriptText '(?i)任务与角色交接|WB_handoff|zcode_handoff' 'structure-generic-handoff'
 }
 
 $requiredStates = @(
@@ -120,3 +146,4 @@ if ($failures.Count -gt 0) {
 
 $result | ConvertTo-Json -Depth 4
 Write-Output 'LEAN_SKILL_VALIDATION_PASS'
+exit 0

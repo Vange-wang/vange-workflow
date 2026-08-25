@@ -23,6 +23,7 @@ Before mutation or dispatch:
 
 1. Restate the requested outcome and non-goals in one sentence.
 2. Read the nearest `AGENTS.md` and only the project entries needed for the current gate.
+   When initializing, onboarding, auditing, or reorganizing repository layout, load [references/project-repository-structure.md](references/project-repository-structure.md) before judging structure.
 3. Identify the current role, permission mode, source of truth, dirty state, acceptance criteria, and unresolved blockers.
 4. For role work, resolve role -> active registered thread ID -> input/output boundary -> write scope. Validate the live binding when tools allow.
 5. Reject missing, stale, mismatched, or overlapping ownership; never invent or silently replace a thread ID.
@@ -88,6 +89,7 @@ Report only: current state, direct verdict, owner-attributed artifacts/evidence,
 | Running the critical-document branch | [references/critical-document-review.md](references/critical-document-review.md) |
 | Updating state, pausing, migrating, or deciding completion | [references/workflow-state-machine.md](references/workflow-state-machine.md) |
 | Choosing verification depth for an artifact | [references/verification-matrix.md](references/verification-matrix.md) |
+| Initializing, onboarding, auditing, or reorganizing project directories | [references/project-repository-structure.md](references/project-repository-structure.md) |
 | A matching website, automation, research/media, or Windows case needs user-specific defaults | [references/user-invariants.md](references/user-invariants.md) |
 
 Do not load every reference at startup.

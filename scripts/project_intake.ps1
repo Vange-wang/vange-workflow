@@ -61,6 +61,11 @@ $manifests = @($allFiles | Where-Object {
     $name -in @('package.json', 'pyproject.toml', 'Cargo.toml', 'go.mod') -or $name -like 'requirements*.txt'
 } | Sort-Object)
 
+$codeExtensions = @('.c', '.cc', '.cpp', '.cs', '.go', '.h', '.hpp', '.ino', '.java', '.js', '.jsx', '.kt', '.py', '.rs', '.swift', '.ts', '.tsx')
+$codeIndicators = @($allFiles | Where-Object {
+    $codeExtensions -contains [System.IO.Path]::GetExtension($_).ToLowerInvariant()
+})
+
 $openIssues = @($allFiles | Where-Object { $_ -match '[\\/]Open_Issue[\\/].+\.md$' -and $_ -notmatch '[\\/]README\.md$' })
 $closedIssues = @($allFiles | Where-Object { $_ -match '[\\/]Close_Issue[\\/].+\.md$' -and $_ -notmatch '[\\/]README\.md$' })
 $issueTables = @($allFiles | Where-Object {
@@ -140,6 +145,32 @@ $topLevel = @(Get-ChildItem -LiteralPath $root -Force -ErrorAction SilentlyConti
         [ordered]@{ name = $_.Name; kind = $kind }
     })
 
+function Test-ProjectDirectory([string]$RelativePath) {
+    return Test-Path -LiteralPath (Join-Path $root $RelativePath) -PathType Container
+}
+
+$codeApplicable = $codeIndicators.Count -gt 0 -or $manifests.Count -gt 0 -or (Test-ProjectDirectory 'Code文档')
+$coreDirectoryChecks = @(
+    [ordered]@{ path = '规划文档'; applies = $true; exists = (Test-ProjectDirectory '规划文档'); reason = 'structured project planning source' },
+    [ordered]@{ path = '协同工作文档'; applies = $true; exists = (Test-ProjectDirectory '协同工作文档'); reason = 'multi-role coordination records' },
+    [ordered]@{ path = '协同工作文档\AGENT身份注册信息'; applies = $true; exists = (Test-ProjectDirectory '协同工作文档\AGENT身份注册信息'); reason = 'Codex registered-role bindings and work records' },
+    [ordered]@{ path = '协同工作文档\ISSUE\Open_Issue'; applies = $true; exists = (Test-ProjectDirectory '协同工作文档\ISSUE\Open_Issue'); reason = 'open Issue state' },
+    [ordered]@{ path = '协同工作文档\ISSUE\Close_Issue'; applies = $true; exists = (Test-ProjectDirectory '协同工作文档\ISSUE\Close_Issue'); reason = 'closed Issue state' },
+    [ordered]@{ path = '协同工作文档\ISSUE\Withdrawn_Issue'; applies = $true; exists = (Test-ProjectDirectory '协同工作文档\ISSUE\Withdrawn_Issue'); reason = 'withdrawn Issue state' },
+    [ordered]@{ path = '协同工作文档\ISSUE\Issue_List'; applies = $true; exists = (Test-ProjectDirectory '协同工作文档\ISSUE\Issue_List'); reason = 'canonical Issue list' },
+    [ordered]@{ path = '总负责人文档'; applies = $true; exists = (Test-ProjectDirectory '总负责人文档'); reason = 'lead responsibility root' },
+    [ordered]@{ path = '总负责人文档\问题分析与任务预案'; applies = $true; exists = (Test-ProjectDirectory '总负责人文档\问题分析与任务预案'); reason = 'lead analysis and task plans' },
+    [ordered]@{ path = 'Code文档'; applies = $codeApplicable; exists = (Test-ProjectDirectory 'Code文档'); reason = 'project contains code indicators' }
+)
+$missingCoreDirectories = @($coreDirectoryChecks | Where-Object { $_.applies -and -not $_.exists } | ForEach-Object { $_.path })
+$domainReferencePaths = @('领域参考资料', '硬件参考')
+$presentDomainReferencePaths = @($domainReferencePaths | Where-Object { Test-ProjectDirectory $_ })
+$conditionalDirectoryChecks = @(
+    [ordered]@{ path = 'UI美术文档'; exists = (Test-ProjectDirectory 'UI美术文档'); condition = 'UI, visual, asset, or design acceptance work exists' },
+    [ordered]@{ path = '协同工作文档\Hermes_handoff'; exists = (Test-ProjectDirectory '协同工作文档\Hermes_handoff'); condition = 'first critical-document Hermes review starts' },
+    [ordered]@{ path = '领域参考资料'; exists = $presentDomainReferencePaths.Count -gt 0; accepted_paths = $presentDomainReferencePaths; condition = 'hardware or specialist reference material exists' }
+)
+
 $warnings = @()
 if (@($entryDocs | Where-Object { [System.IO.Path]::GetFileName($_) -eq 'AGENTS.md' }).Count -eq 0) {
     $warnings += 'No AGENTS.md found in scanned files; confirm instructions manually.'
@@ -149,6 +180,9 @@ if ($gitMarkerExists -and -not $isGit) {
 }
 if ($dirtyEntries.Count -gt 0) {
     $warnings += 'Git worktree has existing changes; preserve unrelated user work.'
+}
+foreach ($missingDirectory in $missingCoreDirectories) {
+    $warnings += "Applicable project structure directory missing: $missingDirectory. Report only; do not create, move, or delete without authorization."
 }
 
 $result = [ordered]@{
@@ -163,6 +197,14 @@ $result = [ordered]@{
         dirty_entries = $dirtyEntries
     }
     top_level = $topLevel
+    repository_structure = [ordered]@{
+        precedence = 'Codex primary; WorkBuddy supplemental only where non-conflicting'
+        mutation_authorized = $false
+        status = $(if ($missingCoreDirectories.Count -eq 0) { 'CONFORMANT_AT_CORE_LEVEL' } else { 'STRUCTURE_REVIEW_REQUIRED' })
+        core = $coreDirectoryChecks
+        missing_applicable_core = $missingCoreDirectories
+        conditional = $conditionalDirectoryChecks
+    }
     entry_docs = $entryDocs
     source_of_truth_candidates = $sourceDocs
     manifests = $manifests
@@ -195,6 +237,15 @@ if ($isGit) {
 }
 Write-Output "Open Issue files: $($openIssues.Count)"
 Write-Output "Closed Issue files: $($closedIssues.Count)"
+
+Write-Output "`nRepository structure: $($result.repository_structure.status)"
+Write-Output "  Precedence: $($result.repository_structure.precedence)"
+foreach ($item in $coreDirectoryChecks) {
+    Write-Output "  core path=$($item.path) applies=$($item.applies) exists=$($item.exists)"
+}
+foreach ($item in $conditionalDirectoryChecks) {
+    Write-Output "  conditional path=$($item.path) exists=$($item.exists) condition=$($item.condition)"
+}
 
 Write-Output "`nThread registry candidates:"
 if ($threadRegistryFiles.Count -eq 0) { Write-Output "  (none)" }
@@ -235,3 +286,5 @@ if ($warnings.Count -gt 0) {
     Write-Output "`nWarnings:"
     foreach ($warning in $warnings) { Write-Output "  $warning" }
 }
+
+exit 0

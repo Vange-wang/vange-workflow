@@ -9,6 +9,7 @@ $routing = Get-Content -LiteralPath (Join-Path $root 'references\thread-routing.
 $review = Get-Content -LiteralPath (Join-Path $root 'references\critical-document-review.md') -Raw -Encoding utf8
 $states = Get-Content -LiteralPath (Join-Path $root 'references\workflow-state-machine.md') -Raw -Encoding utf8
 $verification = Get-Content -LiteralPath (Join-Path $root 'references\verification-matrix.md') -Raw -Encoding utf8
+$repositoryStructure = Get-Content -LiteralPath (Join-Path $root 'references\project-repository-structure.md') -Raw -Encoding utf8
 
 $results = [System.Collections.Generic.List[object]]::new()
 
@@ -81,6 +82,21 @@ Add-Scenario `
     -Pass $completionPass `
     -Evidence 'completion predicate + state + verification matrix'
 
+$structurePass =
+    $repositoryStructure -match 'Codex.*(primary|优先|主模板)' -and
+    $repositoryStructure -match 'WorkBuddy.*(supplement|补充)' -and
+    $repositoryStructure -match 'UI美术文档.*(optional|conditional|按需|条件)' -and
+    $repositoryStructure -match '(do not|不得|禁止).*(copy|复制).*(file|文件|content|内容)' -and
+    $repositoryStructure -match 'only `Hermes_handoff`' -and
+    $repositoryStructure -notmatch '任务与角色交接'
+Add-Scenario `
+    -Name 'codex-and-workbuddy-structures-conflict' `
+    -ExpectedState 'WORKFLOW_ACTIVE' `
+    -ExpectedOwner 'project lead for structure governance' `
+    -ExpectedAction 'keep the Codex structure and add only non-conflicting WorkBuddy responsibilities; do not create optional UI folders without need' `
+    -Pass $structurePass `
+    -Evidence 'repository structure precedence and conditional-directory contract'
+
 $failures = @($results | Where-Object { -not $_.pass })
 $results | ConvertTo-Json -Depth 4
 if ($failures.Count -gt 0) {
@@ -89,3 +105,4 @@ if ($failures.Count -gt 0) {
 }
 
 Write-Output "SCENARIO_CONTRACT_PASS count=$($results.Count)"
+exit 0
