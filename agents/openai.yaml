@@ -1,0 +1,4 @@
+interface:
+  display_name: "Vange_workflow"
+  short_description: "隔离角色、持续跟进并控制关键文档门禁"
+  default_prompt: "Use $vange-workflow to coordinate this structured project through its applicable acceptance gates."

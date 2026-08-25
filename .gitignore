@@ -1,0 +1,16 @@
+.DS_Store
+Thumbs.db
+Desktop.ini
+.idea/
+.vscode/
+*.log
+*.tmp
+*.bak
+*.zip
+artifacts/
+reports/
+review-copies/
+*.secret
+.env
+.env.*
+!.env.example
