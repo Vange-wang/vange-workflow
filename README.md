@@ -12,7 +12,7 @@ Vange Workflow 是面向 Codex＋Hermes CLI 的固定角色项目协作 Skill。
 4. **只使用已登记任务。** 跨任务协作必须使用现有、有效、已登记的 Codex 任务 ID。创建新任务、fork、subagent 或后台 Agent 必须获得用户明确授权。
 5. **未验收不停止。** 计划完成、本地测试通过、单个角色返回、等待超时、遇到阻塞或条件通过都不是项目完成。
 6. **证据分层。** 本地、集成、生产、独立审核和用户/Boss 验收分别报告，不能相互替代。
-7. **关键文档最多审查三轮。** 第一轮尽可能一次发现全部重要问题；非严重问题转为非阻塞 Open Issue，不反复润色。
+7. **关键文档最多审查三轮。** 使用独立获批的脱敏副本和不可覆盖 ledger；第一轮尽可能一次发现全部重要问题，非严重问题转为非阻塞 Open Issue。
 
 ## 2. 适用场景
 
@@ -43,17 +43,23 @@ git clone https://github.com/Vange-wang/vange-workflow.git "$HOME\.codex\skills\
 
 - Codex Desktop 或提供同等任务管理能力的 Codex 客户端；
 - PowerShell 7；
-- Hermes CLI；
-- 已配置 DeepSeek API；
-- Hermes 可在单次调用中使用 `deepseek-v4-pro`。
+- Hermes CLI，或用户明确批准的同等 CLI 审核端；
+- 默认方案需配置 DeepSeek API；
+- 默认推荐 Hermes 单次调用使用 `deepseek-v4-pro`。
 
-Hermes 默认模型不需要改成 `deepseek-v4-pro`。关键文档审查脚本只对本次调用覆盖模型，并验证默认配置未改变。
+`deepseek-v4-pro` 是推荐方案，不是不可替换的唯一模型。替代模型必须获得用户明确批准，并记录能力依据，证明其推理与审查能力不会明显弱于产品经理、总负责人和独立 QA。脚本通过 Hermes `--usage-file` 核对实际运行模型，拒绝静默 fallback，并比较调用前后的默认模型快照。
+
+桌面端主控不得自行下载或安装审核端 CLI；必须先询问并获得用户批准。如果确实无法使用 CLI，只能请求用户授权在主控端创建独立复核任务；不得自动创建，也不得由原作者自审代替。
 
 ```powershell
 pwsh -NoLogo -NoProfile -File .\scripts\review_critical_document.ps1 -Mode Preflight
 ```
 
-预检必须确认：Hermes 路径、版本、DeepSeek 配置、当前默认模型、审查模型和 `default_model_changed=false`。
+预检确认：CLI 路径、版本、配置、当前默认模型快照及 `--usage-file` 支持。`default_model_changed` 只能在真实审查前后比较后得出，预检不会伪造该结论。
+
+### 3.3 替代审核 CLI 的适配边界
+
+仓库内 `review_critical_document.ps1` 是 **Hermes CLI 适配器**，不能通过改可执行文件名直接当成 Cursor、Claude Code、OpenCode、Zcode 等其他 CLI 的通用驱动。使用用户批准的替代审核端时，必须先实现并验证独立适配器，而且仍要满足同一契约：非交互 CLI 调用、仅接收获批脱敏副本、调用前后源文件哈希不变、实际 model/provider 可核验、静默 fallback 被拒绝、共享 append-only `n/3` ledger、正式报告与 metadata 不覆盖、相同报告 schema 和候选门禁状态。缺少任一项就设置 `HERMES_REVIEW_BLOCKED`（兼容状态名），不得宣称等效审核。
 
 ## 4. 项目仓库结构
 
@@ -127,7 +133,9 @@ pwsh -NoLogo -NoProfile -File .\scripts\initialize_project_structure.ps1 `
   -Features Code,Spec,Milestones,Hermes
 ```
 
-`Apply` 只创建缺失的已选目录，不移动、不改名、不删除已有内容。普通仓库扫描不构成自动创建授权。
+`Apply` 先检查全部目标是否存在同名文件或 reparse/junction 风险，再只创建缺失目录；失败时尽可能回滚本次新建的空目录。它不移动、不改名、不删除已有项目内容。普通仓库扫描不构成自动创建授权。
+
+**能力边界：初始化器只生成目录，不会自动生成 PRD、Spec、任务单、Issue、验收报告、代码或其他文档正文。**这些内容仍由对应责任角色在用户或项目正式触发后创建。
 
 ### 4.4 审计现有项目
 
@@ -140,6 +148,7 @@ pwsh -NoLogo -NoProfile -File .\scripts\project_intake.ps1 `
 重点检查：
 
 - `repository_structure.status`；
+- `scan.complete` 和 `scan.diagnostics`；
 - `missing_applicable_core`；
 - `conditional` 的实际存在状态；
 - Git dirty state；
@@ -175,12 +184,13 @@ Host ID（如适用）：
 
 ### 5.2 查找任务
 
-让 Codex 使用 `list_threads`，按项目名、角色名或精确标题查询：
+让 Codex 使用 `list_threads` 取得任务列表，再在返回结果中按项目名、角色名或精确标题筛选。当前工具没有 `query` 参数：
 
 ```text
 操作：list_threads
-输入：query=<项目名或角色名>, limit=<合理数量>
+输入：limit=<合理数量>
 输出：threadId、hostId、title、status 等候选
+后处理：在返回结果中按项目、角色、精确标题筛选；需要历史任务时另用 list_archived_threads
 ```
 
 如果找不到唯一候选，返回 `ROLE_THREAD_UNAVAILABLE` 或 `REGISTRY_INCOMPLETE`，不得猜 ID。
@@ -284,20 +294,29 @@ Host ID（如适用）：
 ### 7.1 审查前
 
 1. 作者先完成充分、连贯的初稿；
-2. 冻结规范源并记录 SHA-256、字节数和行数；
+2. 冻结规范源，记录 SHA-256、字节数、行数、稳定任务 ID 和冻结 Scope ID；
 3. 建立 `Hermes_handoff`；
-4. 生成脱敏临时副本；
-5. 初始化共享计数器 `MAX_REVIEW_ROUNDS=3`；
-6. 运行预检，确认不会静默降级模型或改变默认配置。
+4. 由独立责任人制作脱敏副本并记录批准人/批准 ID。脚本不负责脱敏，规范源不得直接作为审查副本；
+5. 运行预检。脚本会根据任务 ID、规范源路径和 Scope ID 在 `Hermes_handoff` 中建立唯一 append-only JSONL ledger；
+6. Document QA 可提前校验，但若尚未登记，不阻塞第 1 轮；只有出现严重问题时才必须先获得有效 QA 责任角色。
+
+同一任务＋规范源＋冻结范围最多三次真实调用。`review_started` 一旦写入即消耗一轮；调用失败、重试、修订、换报告名或换模型都不会退回次数。
 
 ### 7.2 执行第 1 轮
 
 ```powershell
 pwsh -NoLogo -NoProfile -File .\scripts\review_critical_document.ps1 `
   -Mode Review `
-  -Source <absolute-document-path> `
-  -Report <absolute-report-path> `
-  -Round 1
+  -Source <absolute-canonical-document-path> `
+  -ReviewCopy <absolute-approved-sanitized-copy-path> `
+  -HandoffDirectory <absolute-Hermes_handoff-path> `
+  -Report <absolute-new-round-1-report-path> `
+  -TaskId <stable-task-id> `
+  -ScopeId <stable-frozen-scope-id> `
+  -SanitizationApprovedBy <approver-or-approval-id> `
+  -Round 1 `
+  -ReviewModel deepseek-v4-pro `
+  -ReviewTimeoutSeconds 600
 ```
 
 第 1 轮要求一次性报告所有合理可发现的重要问题。
@@ -305,6 +324,12 @@ pwsh -NoLogo -NoProfile -File .\scripts\review_critical_document.ps1 `
 `SERIOUS`：影响正确性、批准范围、可行性、安全/隐私、不可逆决策、失败处理、验收可测性或下游执行。
 
 `NON_SERIOUS`：措辞、风格、可选增强或局部清晰度。登记为非阻塞 Open Issue，不触发反复修订。
+
+脚本将严格解析报告头、严重问题数量和必需章节，并利用 `--usage-file` 校验真实模型。单次调用默认超时 600 秒（可在 30–3600 秒内显式设置）；超时也会消耗本轮。若模型返回内容但格式不合格，原始 stdout 只会保存为同名 `.rejected.md` 诊断证据，不会冒充正式报告。成功时依次输出 `HERMES_INVOCATION_PASS`、`HERMES_REPORT_VALIDATED`，再输出：
+
+- `QA_DOCUMENT_REWORK`：存在严重问题且仍有剩余轮次；
+- `DOCUMENT_REVIEW_LIMIT_REACHED`：第 3 轮仍有严重问题；
+- `DOCUMENT_GATE_CANDIDATE`：自动报告满足候选条件，但尚未完成外部门禁。
 
 ### 7.3 Document QA 修订
 
@@ -321,16 +346,23 @@ pwsh -NoLogo -NoProfile -File .\scripts\review_critical_document.ps1 `
 ```powershell
 pwsh -NoLogo -NoProfile -File .\scripts\review_critical_document.ps1 `
   -Mode Review `
-  -Source <absolute-document-path> `
-  -Report <absolute-report-path> `
-  -Round 2
+  -Source <absolute-current-canonical-document-path> `
+  -ReviewCopy <absolute-new-approved-sanitized-copy-path> `
+  -HandoffDirectory <same-absolute-Hermes_handoff-path> `
+  -Report <absolute-new-round-2-report-path> `
+  -TaskId <same-stable-task-id> `
+  -ScopeId <same-stable-frozen-scope-id> `
+  -SanitizationApprovedBy <approver-or-approval-id> `
+  -Round 2 `
+  -ReviewModel deepseek-v4-pro `
+  -ReviewTimeoutSeconds 600
 ```
 
 新发现的严重问题必须证明由修订引入，或第 1 轮无法合理发现。修改文件、换报告名、换任务、重试或新 SHA 都不会重置轮次。
 
 第 3 轮后仍有严重问题，设置 `DOCUMENT_REVIEW_LIMIT_REACHED` 并请求用户决定；不得自动开始第 4 轮。
 
-零未解决严重问题后设置 `DOCUMENT_GATE_PASSED`，随后进入 `USER_CONFIRMATION_PENDING`。用户确认前不得启动下游实现。
+`DOCUMENT_GATE_CANDIDATE` 后，总负责人还必须核验实际模型、最终哈希、报告/metadata/ledger、无关 diff、非严重 Issue 所有者，以及**仅在发生 QA 修订时**核验 QA ledger。全部适用条件通过后才设置 `DOCUMENT_GATE_PASSED`，随后进入 `USER_CONFIRMATION_PENDING`。用户确认前不得启动下游实现。
 
 ## 8. Issue、阻塞和返工
 
@@ -381,18 +413,26 @@ python "$HOME\.codex\skills\.system\skill-creator\scripts\quick_validate.py" .
 
 pwsh -NoLogo -NoProfile -File .\tests\validate_lean_skill.ps1 -Path .
 pwsh -NoLogo -NoProfile -File .\tests\run_scenarios.ps1 -Path .
+pwsh -NoLogo -NoProfile -File .\tests\test_project_tools.ps1 -Path .
+pwsh -NoLogo -NoProfile -File .\tests\test_review_critical_document.ps1 -Path .
+
+# 会调用真实审核 API；只发送脚本生成的无敏感测试文本
+pwsh -NoLogo -NoProfile -File .\tests\run_real_hermes_smoke.ps1 -Path .
 ```
+
+该 smoke 不读取真实项目文档，也不占用真实项目的审查 ledger。若 Codex/桌面端沙箱阻止 Hermes 依赖的本地子进程（例如 Git Bash 文件读取器），主控必须先向用户申请本地执行权限，再原样重跑 smoke 或正式审查命令；不得自行关闭安全边界，也不得并行追加模型调用。
 
 还应执行：
 
 - PowerShell parser 检查；
-- 项目结构初始化的 `Plan`/`Apply` 临时目录测试；
+- 项目结构初始化的 `Plan`/`Apply`、幂等、同名文件阻塞与扫描器代码识别测试；
 - Hermes Preflight；
-- 关键文档真实审查场景；
+- mock Hermes 的路径冲突、真实模型、报告 schema、轮次 ledger、防覆盖测试；
+- 发布前至少一次不含敏感数据的真实 Hermes 集成审查；
 - Gitleaks 或 GitHub Secret Scanning；
 - Git dirty state、提交 SHA 和远端 `main` SHA 对比。
 
-测试通过只证明 Skill 和脚本行为，不自动证明使用该 Skill 的具体项目已经完成验收。
+关键词/结构校验只证明规则存在；行为测试才证明被覆盖场景的脚本行为。全部测试通过仍不自动证明使用该 Skill 的具体项目已经完成验收。
 
 ## 12. 发布更新
 
@@ -412,7 +452,7 @@ pwsh -NoLogo -NoProfile -File .\tests\run_scenarios.ps1 -Path .
 ## 13. 安全边界
 
 - 不把 API Key、Token、Cookie、私钥或脱敏前文档放入仓库、报告、日志、截图或聊天；
-- Hermes 只审查脱敏临时副本；
+- Hermes 只审查由独立责任人制作并明确批准的脱敏副本；脚本不会自动脱敏，也不会把规范源冒充为安全副本；
 - 不因持续跟进而扩大部署、付款、发布、凭据、隐私或安全权限；
 - 不因目录模板而擅自移动已有项目；
 - 不因角色缺失而由总负责人代做；

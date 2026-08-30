@@ -14,7 +14,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$root = (Resolve-Path -LiteralPath $Path).Path
+$root = (Resolve-Path -LiteralPath $Path).Path.TrimEnd([IO.Path]::DirectorySeparatorChar)
 if (-not (Test-Path -LiteralPath $root -PathType Container)) {
     throw "Project path is not a directory: $root"
 }
@@ -57,52 +57,146 @@ $featureMap = [ordered]@{
     CodeDocs = @('Code文档', 'Code文档\docs')
 }
 
+function Test-PathWithin([string]$Child, [string]$Parent) {
+    $relative = [IO.Path]::GetRelativePath($Parent, $Child)
+    if ([IO.Path]::IsPathRooted($relative)) { return $false }
+    return $relative -ne '..' -and -not $relative.StartsWith('..' + [IO.Path]::DirectorySeparatorChar)
+}
+
+function Get-ReparseComponent([string]$ProjectRoot, [string]$Target) {
+    $rootItem = Get-Item -LiteralPath $ProjectRoot -Force
+    if (($rootItem.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+        return $rootItem.FullName
+    }
+    $relative = [IO.Path]::GetRelativePath($ProjectRoot, $Target)
+    if ([IO.Path]::IsPathRooted($relative) -or $relative.StartsWith('..')) { return $null }
+    $cursor = $ProjectRoot
+    foreach ($segment in ($relative -split '[\\/]')) {
+        if ([string]::IsNullOrWhiteSpace($segment) -or $segment -eq '.') { continue }
+        $cursor = Join-Path $cursor $segment
+        if (-not (Test-Path -LiteralPath $cursor)) { continue }
+        $item = Get-Item -LiteralPath $cursor -Force
+        if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+            return $item.FullName
+        }
+    }
+    return $null
+}
+
+function Write-Result([System.Collections.IDictionary]$Result, [string]$OutputFormat) {
+    if ($OutputFormat -eq 'Json') {
+        $Result | ConvertTo-Json -Depth 6
+        return
+    }
+    Write-Output "Root: $($Result.root)"
+    Write-Output "Mode: $($Result.mode)"
+    Write-Output "Features: $($Result.selected_features -join ', ')"
+    Write-Output "Can apply: $($Result.can_apply)"
+    foreach ($entry in $Result.entries) {
+        Write-Output "$($entry.action): $($entry.relative_path)"
+        if ($entry.blocker) { Write-Output "  blocker: $($entry.blocker)" }
+    }
+}
+
 $selected = [System.Collections.Generic.List[string]]::new()
-foreach ($relative in $required) { if (-not $selected.Contains($relative)) { $selected.Add($relative) } }
+foreach ($relative in $required) {
+    if (-not $selected.Contains($relative)) { $selected.Add($relative) }
+}
 foreach ($feature in $Features) {
     foreach ($relative in $featureMap[$feature]) {
         if (-not $selected.Contains($relative)) { $selected.Add($relative) }
     }
 }
 
-$entries = @()
+$entries = [System.Collections.Generic.List[object]]::new()
 foreach ($relative in $selected) {
-    $target = [System.IO.Path]::GetFullPath((Join-Path $root $relative))
-    if (-not $target.StartsWith($root + [System.IO.Path]::DirectorySeparatorChar, [System.StringComparison]::OrdinalIgnoreCase)) {
-        throw "Generated path escapes project root: $target"
+    $target = [IO.Path]::GetFullPath((Join-Path $root $relative))
+    $insideRoot = Test-PathWithin $target $root
+    $exists = Test-Path -LiteralPath $target
+    $isDirectory = $exists -and (Test-Path -LiteralPath $target -PathType Container)
+    $reparseComponent = if ($insideRoot) { Get-ReparseComponent $root $target } else { $null }
+    $blocker = $null
+    if (-not $insideRoot) {
+        $blocker = "generated path escapes project root: $target"
+    } elseif ($exists -and -not $isDirectory) {
+        $blocker = "a non-directory item already occupies this path: $target"
+    } elseif (-not [string]::IsNullOrWhiteSpace($reparseComponent)) {
+        $blocker = "a symlink, junction, or reparse point is present in the target path: $reparseComponent"
     }
-    $existsBefore = Test-Path -LiteralPath $target -PathType Container
-    $created = $false
-    if ($Mode -eq 'Apply' -and -not $existsBefore) {
-        [System.IO.Directory]::CreateDirectory($target) | Out-Null
-        $created = $true
+
+    $action = if ($blocker) {
+        'blocked'
+    } elseif ($isDirectory) {
+        'keep'
+    } elseif ($Mode -eq 'Apply') {
+        'create'
+    } else {
+        'would_create'
     }
-    $entries += [ordered]@{
+
+    $entries.Add([ordered]@{
         relative_path = $relative
-        existed = $existsBefore
-        action = $(if ($existsBefore) { 'keep' } elseif ($Mode -eq 'Apply') { 'create' } else { 'would_create' })
-        created = $created
-    }
+        target = $target
+        existed = $isDirectory
+        action = $action
+        created = $false
+        blocker = $blocker
+    })
 }
 
+$blockedEntries = @($entries | Where-Object { -not [string]::IsNullOrWhiteSpace($_.blocker) })
 $result = [ordered]@{
     root = $root
     mode = $Mode
     selected_features = @($Features)
     mutation_authorized_by_script = $false
-    note = 'Apply only creates missing selected directories; it never moves, renames, or deletes.'
+    can_apply = $blockedEntries.Count -eq 0
+    blocker_count = $blockedEntries.Count
+    rolled_back = $false
+    rollback_warnings = @()
+    note = 'Plan never mutates. Apply preflights every selected path, creates only missing directories, and never moves, renames, or deletes existing project content.'
     entries = $entries
 }
 
-if ($Format -eq 'Json') {
-    $result | ConvertTo-Json -Depth 5
+if ($blockedEntries.Count -gt 0) {
+    Write-Result $result $Format
+    if ($Mode -eq 'Apply') {
+        throw "STRUCTURE_APPLY_BLOCKED count=$($blockedEntries.Count); no directory was created."
+    }
     exit 0
 }
 
-Write-Output "Root: $root"
-Write-Output "Mode: $Mode"
-Write-Output "Features: $($Features -join ', ')"
-foreach ($entry in $entries) {
-    Write-Output "$($entry.action): $($entry.relative_path)"
+if ($Mode -eq 'Apply') {
+    $createdPaths = [System.Collections.Generic.List[string]]::new()
+    try {
+        foreach ($entry in $entries) {
+            if ($entry.action -ne 'create') { continue }
+            [IO.Directory]::CreateDirectory($entry.target) | Out-Null
+            $entry.created = $true
+            $entry.action = 'created'
+            $createdPaths.Add($entry.target)
+        }
+    } catch {
+        $rollbackWarnings = [System.Collections.Generic.List[string]]::new()
+        for ($index = $createdPaths.Count - 1; $index -ge 0; $index--) {
+            $createdPath = $createdPaths[$index]
+            try {
+                if (
+                    (Test-PathWithin $createdPath $root) -and
+                    (Test-Path -LiteralPath $createdPath -PathType Container) -and
+                    [string]::IsNullOrWhiteSpace((Get-ReparseComponent $root $createdPath))
+                ) {
+                    [IO.Directory]::Delete($createdPath, $false)
+                }
+            } catch {
+                $rollbackWarnings.Add("Could not remove newly created empty directory '$createdPath': $($_.Exception.Message)")
+            }
+        }
+        $result.rolled_back = $true
+        $result.rollback_warnings = @($rollbackWarnings)
+        throw "Structure initialization failed; newly created empty directories were rolled back where safe. Cause: $($_.Exception.Message)"
+    }
 }
+
+Write-Result $result $Format
 exit 0

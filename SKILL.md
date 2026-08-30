@@ -56,15 +56,15 @@ If blocked, exhaust safe read-only checks, record the blocker/owner/minimum unbl
 
 Use this branch for a PRD, Spec, architecture, framework, workflow/process, implementation plan, acceptance matrix, production/security/deployment runbook, canonical source of truth, or any document governing multiple downstream roles.
 
-1. Finish the initial reasoning before review; reviewers validate a coherent draft rather than completing the design incrementally.
-2. Freeze the canonical source, hash it, sanitize a temporary review copy, and initialize one shared `MAX_REVIEW_ROUNDS = 3` counter.
-3. Run Hermes CLI read-only with the invocation-only `deepseek-v4-pro` override. Do not change its default profile, expose restricted data, or accept silent model fallback.
-4. Round 1 reports all reasonably discoverable material findings together. `SERIOUS` means material risk to correctness, approved scope, feasibility, security/privacy, irreversible decisions, failure handling, acceptance/testability, or downstream execution.
-5. Send the complete `SERIOUS` batch to the separate registered Document QA remediation owner. `NON_SERIOUS` wording, style, optional enhancement, or local clarity items become named non-blocking Open Issues and do not trigger rework.
-6. QA edits only the named document and ledger; it cannot approve its own work. Rounds 2–3 verify serious fixes and affected regressions, not taste-driven full-document polishing.
-7. Edits, retries, new hashes, report names, adapters, or thread changes do not reset the counter. A later new serious finding must show it was revision-introduced or not reasonably discoverable in round 1.
-8. Pass only with zero unresolved serious findings and a verified final hash/report/ledger. After round 3, set `DOCUMENT_REVIEW_LIMIT_REACHED` and request a user decision—never start round 4 implicitly.
-9. Set `USER_CONFIRMATION_PENDING` after the document gate passes; downstream implementation waits for user confirmation.
+1. Finish the reasoning first; review validates a coherent draft rather than completing design incrementally.
+2. Freeze the canonical source. A separate owner creates and approves a sanitized copy inside `Hermes_handoff`; the reviewer script never sanitizes or receives the canonical file as review input.
+3. Use one append-only ledger with `MAX_REVIEW_ROUNDS = 3`. A started invocation consumes a round; retries, edits, hashes, report names, models, or threads do not reset it.
+4. Use a reviewer CLI and verify the actual runtime model from usage evidence. Hermes CLI with `deepseek-v4-pro` is recommended; an alternative requires explicit user approval and evidence that it is not materially weaker than the product manager, lead, and independent QA. Reject silent fallback or default-profile mutation.
+5. Round 1 reports all reasonably discoverable material findings together. Send one complete `SERIOUS` batch to registered Document QA; defer `NON_SERIOUS` wording/style/optional items as owned non-blocking Open Issues.
+6. QA edits only the named document and applicable ledger and cannot self-approve. Rounds 2–3 verify serious fixes and affected regressions. After round 3, set `DOCUMENT_REVIEW_LIMIT_REACHED` and request a user decision.
+7. The script may emit only a gate candidate. The lead sets `DOCUMENT_GATE_PASSED` after all applicable model, hash, report, QA, Issue, and no-unrelated-diff evidence passes, then sets `USER_CONFIRMATION_PENDING`; implementation waits for user confirmation.
+
+A desktop controller must obtain explicit user approval before installing a reviewer CLI. If no CLI is possible, request authorization for a separate independent review task; never create it implicitly or self-approve.
 
 ## State and completion
 

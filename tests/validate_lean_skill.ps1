@@ -61,9 +61,9 @@ if ($null -ne $skillPath) {
 
 $sizeLimits = @{
     'references/contracts.md' = 5200
-    'references/critical-document-review.md' = 6200
+    'references/critical-document-review.md' = 9000
     'references/thread-routing.md' = 5200
-    'references/project-repository-structure.md' = 8200
+    'references/project-repository-structure.md' = 10000
     'references/user-invariants.md' = 4200
     'references/workflow-state-machine.md' = 4600
 }
@@ -80,7 +80,8 @@ if ($null -ne $structurePath) {
     Require-Match $structure '(?i)do not create generic per-role handoff' 'no-generic-role-handoff-tree'
     Require-Match $structure '(?i)Feature trigger registry' 'feature-trigger-registry'
     Require-Match $structure '(?i)zcode_tasks.*deliberately excluded' 'exclude-workbuddy-task-folders'
-    Require-Match $structure '(?i)scanner state covers.*core-path existence' 'scanner-coverage-boundary'
+    Require-Match $structure '(?i)scanner (state )?covers.*core-path existence' 'scanner-coverage-boundary'
+    Require-Match $structure '(?i)scan\.complete=true' 'scanner-completeness-gate'
 }
 
 foreach ($entry in $sizeLimits.GetEnumerator()) {
@@ -100,6 +101,12 @@ if ($null -ne $reviewScript) {
     Require-Match $scriptText 'Get-FileHash' 'review-source-hash'
     Require-Match $scriptText 'Copy-Item' 'review-copy-isolation'
     Require-Match $scriptText 'Preflight' 'review-preflight-mode'
+    Require-Match $scriptText 'ReviewCopy' 'approved-review-copy-input'
+    Require-Match $scriptText '--usage-file' 'actual-model-usage-proof'
+    Require-Match $scriptText 'review_started' 'persistent-review-counter'
+    Require-Match $scriptText 'FileMode\]::CreateNew' 'review-no-clobber-write'
+    Require-Match $scriptText 'HERMES_INVOCATION_PASS' 'invocation-not-gate-marker'
+    Forbid-Match $scriptText "Write-Output 'HERMES_REVIEW_PASS'" 'false-review-pass-marker'
 }
 
 $structureScript = Require-File 'scripts/initialize_project_structure.ps1'
@@ -108,6 +115,8 @@ if ($null -ne $structureScript) {
     Require-Match $scriptText "ValidateSet\('Plan', 'Apply'\)" 'structure-plan-apply-modes'
     Require-Match $scriptText 'Hermes_handoff' 'structure-hermes-feature'
     Require-Match $scriptText '(?i)never moves, renames, or deletes' 'structure-create-only'
+    Require-Match $scriptText '(?i)reparse point' 'structure-reparse-guard'
+    Require-Match $scriptText '(?i)no directory was created' 'structure-preflight-before-apply'
     Forbid-Match $scriptText '(?i)任务与角色交接|WB_handoff|zcode_handoff' 'structure-generic-handoff'
 }
 
@@ -123,7 +132,12 @@ $requiredStates = @(
     'HERMES_REVIEW_PENDING',
     'QA_DOCUMENT_REWORK',
     'DOCUMENT_REVIEW_LIMIT_REACHED'
+    'DOCUMENT_GATE_CANDIDATE'
 )
+
+Require-File 'tests/test_project_tools.ps1' | Out-Null
+Require-File 'tests/test_review_critical_document.ps1' | Out-Null
+Require-File 'tests/run_real_hermes_smoke.ps1' | Out-Null
 $allMarkdown = Get-ChildItem -LiteralPath $root -Recurse -Filter '*.md' -File |
     ForEach-Object { Get-Content -LiteralPath $_.FullName -Raw -Encoding utf8 } |
     Out-String

@@ -68,15 +68,16 @@ Use one evolving record across review, QA remediation, limit, and user confirmat
 ```text
 文档类型 / 规范源文件 / 作者角色：
 冻结范围 / SHA-256 / 字节数 / 行数：
-审查轮次 n/3 / 剩余次数：
-临时审查副本与脱敏：
-Hermes 路径、版本、命令、deepseek-v4-pro 运行证据、退出码：
-报告路径 / verdict：
+任务 ID / 冻结 Scope ID / review-cycle ledger：
+审查轮次 n/3 / 已消耗与剩余次数：
+独立审查副本 / SHA-256 / 脱敏批准人或批准 ID：
+CLI 路径、版本、命令、请求模型、实际模型/provider、usage 证据、退出码：
+报告与 metadata 路径 / SHA-256 / verdict：
 SERIOUS 批次 / 未解决数：
 NON_SERIOUS -> 非阻塞 Open Issue ID / 未来关闭触发条件：
-Document QA 线程 ID / 唯一写入文件 / 修订 ledger / 新 SHA-256：
+如发生 QA：Document QA 线程 ID / 唯一写入文件 / 修订 ledger / 新 SHA-256：
 无关 diff：
-下一状态：HERMES_REVIEW_PENDING / QA_DOCUMENT_REWORK / DOCUMENT_REVIEW_LIMIT_REACHED / DOCUMENT_GATE_PASSED / USER_CONFIRMATION_PENDING
+下一状态：HERMES_REVIEW_PENDING / QA_DOCUMENT_REWORK / DOCUMENT_REVIEW_LIMIT_REACHED / DOCUMENT_GATE_CANDIDATE / DOCUMENT_GATE_PASSED / USER_CONFIRMATION_PENDING
 用户确认前禁止启动的下游工作：
 ```
 

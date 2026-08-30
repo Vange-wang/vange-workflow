@@ -60,7 +60,9 @@ $reviewPass =
     $review -match 'Round 1.*all reasonably discoverable material findings' -and
     $review -match 'complete serious-finding batch' -and
     $review -match 'NON_SERIOUS.*non-blocking Open Issue' -and
-    $review -match 'After round 3'
+    $review -match 'After round 3' -and
+    $review -match 'DOCUMENT_GATE_CANDIDATE' -and
+    $review -match 'when QA remediation occurred'
 Add-Scenario `
     -Name 'critical-document-round-one-has-mixed-findings' `
     -ExpectedState 'QA_DOCUMENT_REWORK' `

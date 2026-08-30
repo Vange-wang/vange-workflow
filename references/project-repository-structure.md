@@ -8,6 +8,7 @@ Learn directory roles only. Do not copy sample project files, filenames, source,
 
 - **Audit mode:** run `scripts/project_intake.ps1`; report evidence and gaps only. Do not create, rename, move, or delete.
 - **Initialization/structure-setup mode:** only when that mutation is explicitly in scope, run `scripts/initialize_project_structure.ps1` first with `-Mode Plan`, confirm the selected feature triggers, then use `-Mode Apply`. Apply is idempotent and only creates missing directories.
+- The initializer creates directories only. It never generates PRD, Spec, task, Issue, acceptance, code, or other project-document contents; those remain owned deliverables created only when commissioned.
 - Required responsibility roots may initially be empty. Conditional branches are generated only when their named trigger becomes true; do not pre-create speculative empty folders.
 - An established equivalent may remain only when its owner, canonical source, write scope, and mapping to this structure are recorded without overlap.
 
@@ -83,7 +84,7 @@ Before `-Mode Apply`, record `selected_features`, trigger evidence, owner, and t
 | `Tests` | Executable project verification exists. |
 | `CodeDocs` | Documentation is owned with the code rather than project planning. |
 
-`project_intake.ps1` recognizes source extensions `.c`, `.cc`, `.cpp`, `.cs`, `.go`, `.h`, `.hpp`, `.ino`, `.java`, `.js`, `.jsx`, `.kt`, `.py`, `.rs`, `.swift`, `.ts`, and `.tsx`, plus common manifests. The selected-feature record remains the authority for conditions the scanner cannot infer.
+`project_intake.ps1` recognizes common application, firmware, automation, shell/PowerShell, web-component, mobile, build-system, and infrastructure source extensions plus common manifests. Its JSON output records the exact recognized extension list and `scan.complete`; the selected-feature record remains authoritative for conditions the scanner cannot infer.
 
 ## Observable conformance
 
@@ -93,6 +94,6 @@ Before `-Mode Apply`, record `selected_features`, trigger evidence, owner, and t
 2. `Code文档` exists when code indicators exist; each other conditional branch exists only when its trigger is recorded as applicable.
 3. No generic role-handoff tree duplicates Codex role anchors/work records; Hermes uses only `Hermes_handoff`.
 4. Each accepted equivalent is mapped in the authorized lead task plan or workflow ledger with one owner, canonical source, exact write scope, and no competing mutable source.
-5. `project_intake.ps1 -Path <project-root> -Format Json` reports `CONFORMANT_AT_CORE_LEVEL`; the lead verifies the selected-feature record and records the structure verdict. That scanner state covers applicable core-path existence, code applicability, and observed optional aliases only. It does not verify semantic ownership, trigger truth, mutation authority, or final acceptance.
+5. `project_intake.ps1 -Path <project-root> -Format Json` reports `scan.complete=true` and `CONFORMANT_AT_CORE_LEVEL`; the lead verifies the selected-feature record and records the structure verdict. An incomplete scan cannot pass. The scanner covers applicable core-path existence, code applicability, and observed conditional paths only; it does not verify semantic ownership, trigger truth, mutation authority, or final acceptance.
 
 Code, UI, QA, review, deployment, and domain-reference branches retain separate owners and gates. The project lead governs structure and routing but does not write specialist deliverables.

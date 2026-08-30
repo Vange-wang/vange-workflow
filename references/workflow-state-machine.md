@@ -13,6 +13,7 @@ Load when updating a ledger, handling a blocker or migration, pausing, or decidi
 | `HERMES_REVIEW_BLOCKED` | Exact model/runtime or safe copy is unavailable; preserve source and request minimum unblock action. |
 | `QA_DOCUMENT_REWORK` | Route the complete serious-finding batch to registered Document QA before round 3. |
 | `DOCUMENT_REVIEW_LIMIT_REACHED` | Round 3 still has a serious finding; stop automated review and request user decision. |
+| `DOCUMENT_GATE_CANDIDATE` | CLI usage and report schema passed with zero serious findings; lead still verifies applicable QA, Issue, hash, and no-unrelated-diff evidence. |
 | `DOCUMENT_GATE_PASSED` | Final reviewed hash has zero serious findings and complete QA/Issue evidence; request user confirmation. |
 | `USER_CONFIRMATION_PENDING` | Present final document/hash/report/ledger; downstream implementation waits. |
 | `REWORK_REQUIRED` | Return the defect to its owner and rerun affected checks. |
@@ -41,7 +42,7 @@ For a critical document:
 HERMES_REVIEW_PENDING
   -> QA_DOCUMENT_REWORK -> HERMES_REVIEW_PENDING (while total rounds < 3)
   -> DOCUMENT_REVIEW_LIMIT_REACHED (serious finding after round 3)
-  -> DOCUMENT_GATE_PASSED
+  -> DOCUMENT_GATE_CANDIDATE -> DOCUMENT_GATE_PASSED
   -> USER_CONFIRMATION_PENDING
 ```
 
