@@ -2,7 +2,31 @@
 
 **English** | [简体中文](README.cn.md)
 
-Vange Workflow is a fixed-role project coordination skill for Codex and Hermes CLI. It is not designed to make one agent do everything. Instead, a project lead continuously routes work, follows up, checks evidence, and controls gates while registered specialist roles produce their own deliverables. The workflow remains active until every applicable acceptance gate passes or the user explicitly pauses, stops, or cancels it.
+Vange Workflow is a fixed-role project coordination skill for Codex and Hermes CLI.
+
+It helps a project lead route work to registered specialist tasks, track handoffs, check evidence, and manage acceptance gates while specialists own their deliverables. It addresses unclear ownership, missed handoffs, missing evidence, and premature completion claims in multi-task AI-assisted projects. It is not intended for one-off questions or simple work handled by a single agent.
+
+- **Client capabilities:** this is not a standalone general-purpose multi-agent platform. It depends on a Codex client with the required task-management tools; installing the skill does not add missing tools.
+- **Authorization:** installation does not authorize new role tasks, forks, subagents, or background agents. Use valid registered tasks; creating new ones requires explicit user authorization.
+
+**Regular coordination:** confirm goals and authority → validate registered roles → dispatch work → collect artifacts and evidence → rework or hand off → pass all applicable gates and user acceptance.
+
+**Critical-document branch, when required before downstream implementation:** freeze scope → separately approved sanitized copy → Hermes review → Document QA remediation and re-review if needed → gate approval and user confirmation → downstream implementation. Script output is only a gate candidate; see [review rules and the three-round limit](#7-critical-documents-hermes-and-document-qa).
+
+## Getting started
+
+1. **Check the environment and permissions.** You need a Codex client with the required task-management capabilities and PowerShell 7. The default review setup uses Hermes CLI, a configured DeepSeek API, and the recommended `deepseek-v4-pro` model. Read [dependencies](#32-required-environment) and the [adapter boundary](#33-adapter-boundary-for-alternative-reviewer-clis): an approved alternative CLI needs its own validated adapter.
+2. **Install or inspect the existing installation.** Use the [installation command](#31-install-the-skill) only if the target directory does not exist; otherwise inspect local changes before updating. Reopen the Codex task after installation. Before running the relative script commands below, enter the skill root with `Set-Location "$HOME\.codex\skills\vange-workflow"` (adjust this path for a custom installation).
+3. **Try a read-only entry point.** Choose an existing test directory you are authorized to inspect. In [directory preview](#43-preview-and-initialize-directories), use only `initialize_project_structure.ps1 -Mode Plan` to list proposed directories; or use [project scanning](#44-audit-an-existing-project) with `project_intake.ps1` to inspect structure and scan diagnostics. Replace `<project-root>` in those examples with the quoted absolute path to your test directory.
+
+These entry points are a preview or scan, not a full multi-role demonstration, completed environment setup, or final acceptance. They do not require `Apply`, a real review API call, role creation, or production deployment.
+
+## Documentation
+
+- [Installation and dependencies](#3-installation-and-dependencies) · [Role registration and routing](#5-fixed-codex-tasks-and-thread-ids)
+- [Critical-document review](#7-critical-documents-hermes-and-document-qa) · [Acceptance](#9-acceptance-and-completion)
+- [Validation](#11-validate-the-skill) · [Publishing updates](#12-publish-an-update)
+- [Runtime instructions](SKILL.md) · [Project structure specification](references/project-repository-structure.md) · [Thread routing contract](references/thread-routing.md)
 
 The currently installed `vange-workflow` skill is the canonical runtime source for this repository. See [SKILL.md](SKILL.md) for runtime instructions. This README is the complete installation and operations manual and is not loaded in full every time the skill runs.
 
