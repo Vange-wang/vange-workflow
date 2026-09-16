@@ -8,6 +8,10 @@ This file records user-visible changes. Unreleased entries are not evidence of a
 
 - Contribution guidance covering issue reports, focused pull requests, validation, and security boundaries.
 - A proposed v0.1.0 release-notes draft and pre-release checklist.
+- Bug report, feature request, and pull request templates with explicit validation and privacy fields.
+- A Quick Start with executable read-only checks, a conceptual lead/developer/QA walkthrough, and entry links in both READMEs.
+
+These maintenance additions were merged through PRs #3, #4, and #5 and are present at `86ea49430b35f16a7dbd7a68bf8cf23755d8522a`. They remain unreleased.
 
 ## [0.1.0] - Unreleased draft
 
