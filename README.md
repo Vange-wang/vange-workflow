@@ -15,6 +15,8 @@ It helps a project lead route work to registered specialist tasks, track handoff
 
 ## Getting started
 
+[Quick Start →](docs/quickstart.md) Local checks and a conceptual role walkthrough.
+
 1. **Check the environment and permissions.** You need a Codex client with the required task-management capabilities and PowerShell 7. The default review setup uses Hermes CLI, a configured DeepSeek API, and the recommended `deepseek-v4-pro` model. Read [dependencies](#32-required-environment) and the [adapter boundary](#33-adapter-boundary-for-alternative-reviewer-clis): an approved alternative CLI needs its own validated adapter.
 2. **Install or inspect the existing installation.** Use the [installation command](#31-install-the-skill) only if the target directory does not exist; otherwise inspect local changes before updating. Reopen the Codex task after installation. Before running the relative script commands below, enter the skill root with `Set-Location "$HOME\.codex\skills\vange-workflow"` (adjust this path for a custom installation).
 3. **Try a read-only entry point.** Choose an existing test directory you are authorized to inspect. In [directory preview](#43-preview-and-initialize-directories), use only `initialize_project_structure.ps1 -Mode Plan` to list proposed directories; or use [project scanning](#44-audit-an-existing-project) with `project_intake.ps1` to inspect structure and scan diagnostics. Replace `<project-root>` in those examples with the quoted absolute path to your test directory.
