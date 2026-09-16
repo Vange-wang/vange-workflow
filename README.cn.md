@@ -15,6 +15,8 @@ Vange Workflow 是面向 Codex 与 Hermes CLI 的固定角色项目协作 Skill�
 
 ## 开始使用
 
+[快速开始 →](docs/quickstart.md) 只读入门检查与概念角色协作示例（英文）。
+
 1. **确认环境与权限。**需要具备所需任务管理能力的 Codex 客户端和 PowerShell 7。默认审查方案使用 Hermes CLI、已配置的 DeepSeek API，以及推荐模型 `deepseek-v4-pro`。先阅读[必需环境](#32-必需环境)和[适配边界](#33-替代审核-cli-的适配边界)：获批的替代 CLI 仍需独立实现并验证适配器。
 2. **安装或检查已有安装。**仅在目标目录不存在时使用[安装命令](#31-安装-skill)；已有安装先检查本地修改，再决定更新。安装后重新打开 Codex 任务。运行下方相对路径脚本命令前，先用 `Set-Location "$HOME\.codex\skills\vange-workflow"` 进入 Skill 根目录（自定义安装需调整路径）。
 3. **尝试只读入口。**选择一个有权检查的已有测试目录。在[目录预览](#43-预览目录初始化)中仅使用 `initialize_project_structure.ps1 -Mode Plan` 查看拟创建目录；或按[项目扫描](#44-审计现有项目)使用 `project_intake.ps1` 查看结构与扫描诊断。将这些示例中的 `<project-root>` 替换为带引号的测试目录绝对路径。
